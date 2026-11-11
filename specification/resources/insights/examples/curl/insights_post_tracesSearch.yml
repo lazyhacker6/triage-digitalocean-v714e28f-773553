@@ -1,0 +1,22 @@
+lang: cURL
+source: |-
+  curl -X POST \
+    -H "Authorization: Bearer $DIGITALOCEAN_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "time_range": {
+        "from": {"relative": "24h"},
+        "to": {"relative": "now"}
+      },
+      "filter": {
+        "and": {
+          "expressions": [
+            {"condition": {"field": {"name": "service.name"}, "operator": "FILTER_OPERATOR_EQ", "value": {"string_value": "checkout-api"}}},
+            {"text_search": {"query": "timeout"}}
+          ]
+        }
+      },
+      "order_by": [{"field": {"name": "duration_ns"}, "direction": "desc"}],
+      "pagination": {"limit": 50}
+    }' \
+    "https://api.digitalocean.com/v2/insights/query/nyc3/traces/search"

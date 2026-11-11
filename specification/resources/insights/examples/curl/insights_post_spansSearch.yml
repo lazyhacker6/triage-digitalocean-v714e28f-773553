@@ -1,0 +1,32 @@
+lang: cURL
+source: |-
+  curl -X POST \
+    -H "Authorization: Bearer $DIGITALOCEAN_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "time_range": {
+        "from": {"relative": "1h"},
+        "to": {"relative": "now"}
+      },
+      "filter": {
+        "and": {
+          "expressions": [
+            {"condition": {
+              "field": {"name": "service.name"},
+              "operator": "FILTER_OPERATOR_EQ",
+              "value": {"string_value": "api-gateway"}
+            }},
+            {"condition": {
+              "field": {"name": "status_code"},
+              "operator": "FILTER_OPERATOR_EQ",
+              "value": {"string_value": "Error"}
+            }}
+          ]
+        }
+      },
+      "order_by": [
+        {"field": {"name": "start_time"}, "direction": "desc"}
+      ],
+      "pagination": {"limit": 100}
+    }' \
+    "https://api.digitalocean.com/v2/insights/query/nyc3/spans/search"

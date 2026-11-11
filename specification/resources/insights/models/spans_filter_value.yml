@@ -1,0 +1,46 @@
+type: object
+description: A typed literal or list value for a spans filter condition. Exactly one kind is set per message.
+oneOf:
+  - required:
+      - string_value
+  - required:
+      - number_value
+  - required:
+      - string_array_value
+  - required:
+      - number_array_value
+properties:
+  string_value:
+    type: string
+    example: "api-gateway"
+  number_value:
+    type: number
+    example: 42
+  string_array_value:
+    type: object
+    required:
+      - values
+    properties:
+      values:
+        type: array
+        minItems: 1
+        maxItems: 100
+        items:
+          type: string
+        example:
+          - "api-gateway"
+          - "checkout"
+  number_array_value:
+    type: object
+    required:
+      - values
+    properties:
+      values:
+        type: array
+        minItems: 1
+        maxItems: 100
+        items:
+          type: number
+        example:
+          - 42
+          - 84

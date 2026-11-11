@@ -1,0 +1,70 @@
+type: object
+description: A single span returned by a spans search.
+properties:
+  trace_id:
+    type: string
+    description: The trace identifier the span belongs to.
+    example: "4bf92f3577b34da6a3ce929d0e0e4736"
+  span_id:
+    type: string
+    description: The span identifier.
+    example: "00f067aa0ba902b7"
+  parent_span_id:
+    type: string
+    description: The parent span identifier. Omitted for root spans.
+    example: "00f067aa0ba902b6"
+  start_time:
+    type: string
+    format: date-time
+    description: The span start time.
+    example: "2026-09-30T00:00:00Z"
+  end_time:
+    type: string
+    format: date-time
+    description: The span end time.
+    example: "2026-09-30T00:00:01Z"
+  duration_ns:
+    type: integer
+    format: int64
+    description: The span duration in nanoseconds.
+    example: 1000000
+  name:
+    type: string
+    description: The span name.
+    example: "GET /v2/droplets"
+  kind:
+    type: string
+    description: The span kind.
+    example: "Server"
+  status_code:
+    type: string
+    description: The span status code.
+    example: "Ok"
+  status_message:
+    type: string
+    description: The span status message. Omitted when empty.
+    example: "connection reset by peer"
+  service_name:
+    type: string
+    description: The name of the service that emitted the span.
+    example: "api-gateway"
+  resource:
+    type: object
+    description: Resource attributes associated with the span.
+    additionalProperties:
+      type: string
+    example:
+      service.name: "api-gateway"
+      service.version: "1.4.2"
+  attributes:
+    type: object
+    description: Span attributes.
+    additionalProperties:
+      type: string
+    example:
+      http.method: "GET"
+      http.status_code: "200"
+  region:
+    type: string
+    description: The datacenter region slug the span was queried from.
+    example: "nyc3"

@@ -1,0 +1,46 @@
+type: object
+description: A typed literal or list value for a traces filter condition. Exactly one kind is set per message.
+oneOf:
+  - required:
+      - string_value
+  - required:
+      - number_value
+  - required:
+      - string_array_value
+  - required:
+      - number_array_value
+properties:
+  string_value:
+    type: string
+    example: "checkout-api"
+  number_value:
+    type: number
+    example: 500000000
+  string_array_value:
+    type: object
+    required:
+      - values
+    properties:
+      values:
+        type: array
+        minItems: 1
+        maxItems: 100
+        items:
+          type: string
+        example:
+          - checkout-api
+          - payments-api
+  number_array_value:
+    type: object
+    required:
+      - values
+    properties:
+      values:
+        type: array
+        minItems: 1
+        maxItems: 100
+        items:
+          type: number
+        example:
+          - 42
+          - 84

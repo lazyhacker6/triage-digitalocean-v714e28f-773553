@@ -1,0 +1,58 @@
+type: object
+description: >-
+  A boolean filter tree for traces queries. Exactly one node is set per
+  message. Trees may be nested at most 16 levels deep and contain at most 256
+  nodes in total.
+oneOf:
+  - required:
+      - condition
+  - required:
+      - and
+  - required:
+      - or
+  - required:
+      - not
+  - required:
+      - text_search
+properties:
+  condition:
+    $ref: 'traces_filter_condition.yml'
+  and:
+    type: object
+    required:
+      - expressions
+    properties:
+      expressions:
+        type: array
+        minItems: 1
+        maxItems: 32
+        items:
+          $ref: 'traces_filter_expression.yml'
+  or:
+    type: object
+    required:
+      - expressions
+    properties:
+      expressions:
+        type: array
+        minItems: 1
+        maxItems: 32
+        items:
+          $ref: 'traces_filter_expression.yml'
+  not:
+    $ref: 'traces_filter_expression.yml'
+  text_search:
+    type: object
+    description: A substring search across span names, service names, and status messages.
+    required:
+      - query
+    properties:
+      query:
+        type: string
+        minLength: 1
+        maxLength: 256
+        pattern: '\S'
+        description: >-
+          The search string. Leading and trailing whitespace is trimmed, and
+          the remaining string must not be empty.
+        example: "timeout"

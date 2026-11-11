@@ -1,0 +1,24 @@
+allOf:
+  - $ref: 'microvm_base.yml'
+  - type: object
+
+    description: >-
+      A MicroVM. Only its name and tags can be changed after creation, with
+      PATCH `/v2/microvms/{microvm_id}`. Every other field is fixed at create.
+
+    properties:
+      tags:
+        type: array
+        items:
+          type: string
+        description: The tags applied to the MicroVM.
+        example:
+          - example
+
+      project_id:
+        type: string
+        format: uuid
+        description: >-
+          The project the MicroVM belongs to. Omitted when the project could
+          not be resolved.
+        example: 4de7ac8b-495b-4884-9a69-1050c6793cd6
