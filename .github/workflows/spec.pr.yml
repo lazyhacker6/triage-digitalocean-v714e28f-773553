@@ -39,7 +39,10 @@ jobs:
 
   generate-preview:
     # As this job needs access to secrets, skip it if the PR comes from a fork.
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    # The isolated triage copy has no Spaces credentials configured, so this job
+    # is skipped there as well; it is irrelevant to the artifact consumed by the
+    # workflow_run workflow.
+    if: false
     name: Generate Preview
     runs-on: ubuntu-latest
 
